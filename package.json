@@ -1,0 +1,30 @@
+{
+  "name": "amd",
+  "version": "1.0.0",
+  "description": "Another module loader implements AMD API",
+  "homepage": "https://github.com/renrenfed/amd",
+  "author": "viclm <viclm@live.com>",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:renrenfed/amd.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-coffee": "^0.11.1"
+  },
+  "scripts": {
+    "test": "grunt"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/renrenfed/amd/blob/master/LICENSE-MIT"
+    }
+  ],
+  "keywords": [
+    "module",
+    "loader",
+    "amd"
+  ]
+}

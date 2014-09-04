@@ -1,0 +1,24 @@
+{
+  "id" : "amd",
+  "publish_dir" : "dist",
+  "mapping_dir" : "nx/amd",
+  "concat.engine": "json",
+  "concat.config": "concatfile.json",
+  "lint": {
+    "js": {
+      "engine": "eslint",
+      "config": "eslint.json"
+    }
+  },
+  "test": {
+    "frameworks": ["jasmine"],
+    "browsers": ["PhantomJS"],
+    "files": [
+      "src/*.coffee",
+      "test/helper/**",
+      "test/spec/**"
+     ],
+    "plugins": ["karma-jasmine", "karma-phantomjs-launcher"],
+    "autoWatchBatchDelay": "500"
+  }
+}
