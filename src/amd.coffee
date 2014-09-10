@@ -8,6 +8,29 @@ defaultDependencies = ['require', 'exports', 'module']
 modules = {}
 mainModuleCount = 0
 
+unless Array::indexOf
+  Array::indexOf = (searchElement, fromIndex) ->
+    if @ is undefined or @ is null
+      throw new TypeError '"this" is null or not defined'
+
+    length = @length >>> 0; # Hack to convert object.length to a UInt32
+
+    fromIndex = +fromIndex || 0
+
+    if Math.abs(fromIndex) is Infinity
+      fromIndex = 0
+
+    if fromIndex < 0
+      fromIndex += length
+      if fromIndex < 0
+        fromIndex = 0
+
+    for index in [fromIndex...length]
+      if @[index] is searchElement
+        return fromIndex
+
+    return -1
+
 
 class Loader
 
