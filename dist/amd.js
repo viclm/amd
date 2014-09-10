@@ -19,6 +19,32 @@
 
   mainModuleCount = 0;
 
+  if (!Array.prototype.indexOf) {
+    Array.prototype.indexOf = function(searchElement, fromIndex) {
+      var index, length, _i;
+      if (this === void 0 || this === null) {
+        throw new TypeError('"this" is null or not defined');
+      }
+      length = this.length >>> 0;
+      fromIndex = +fromIndex || 0;
+      if (Math.abs(fromIndex) === Infinity) {
+        fromIndex = 0;
+      }
+      if (fromIndex < 0) {
+        fromIndex += length;
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
+      }
+      for (index = _i = fromIndex; fromIndex <= length ? _i < length : _i > length; index = fromIndex <= length ? ++_i : --_i) {
+        if (this[index] === searchElement) {
+          return fromIndex;
+        }
+      }
+      return -1;
+    };
+  }
+
   Loader = (function() {
     function Loader() {
       this.loading = {};
@@ -193,6 +219,8 @@
         global http://xliuming.com/error-stack-test.js:2:20
         firefox31
         @http://xliuming.com/error-stack-test.js:2:5
+        ie11
+        Error at Global code (http://fed.d.xiaonei.com/javascripts/error-stack-test.js:2:5)
         ie7
         ie6
         undefined
