@@ -11,14 +11,12 @@
     }
   },
   "test": {
-    "frameworks": ["jasmine"],
-    "browsers": ["PhantomJS"],
     "files": [
       "src/*.coffee",
       "test/helper/**",
-      "test/spec/**"
+      {"pattern": "test/spec/**/!(spec).js", "include": false},
+      "test/spec/**/spec.js"
      ],
-    "plugins": ["karma-jasmine", "karma-phantomjs-launcher"],
     "autoWatchBatchDelay": "500"
   }
 }

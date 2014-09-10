@@ -1,7 +1,8 @@
+//define(function () {
+
 describe('shim', function () {
 
     require.config({
-        baseUrl: 'base/test/spec/shim',
         shim: {
             a: {
                 exports: 'A.name'
@@ -56,11 +57,8 @@ describe('shim', function () {
             expect(e.C.name).toBe('c');
             expect(e.D.name).toBe('d');
         });
-
-    });
-
-    require.config({
-        baseUrl: ''
     });
 
 });
+
+//});

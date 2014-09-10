@@ -1,26 +1,36 @@
-config =
-  baseUrl: ''
-  paths: {}
 rRequire = /\brequire\s*?\(\s*?(['"])([^)]+)\1\s*?\)/g
 rRelativeId = /^\.{1,2}/
+rStackUrl = /([^@\s(]+)(?::\d+){1,2}\)?$/
 rJS = /\.js$/
 defaultDependencies = ['require', 'exports', 'module']
-modules = {}
 mainModuleCount = 0
+modules = {}
+
+origin = window.location.origin
+unless origin
+  origin = window.location.protocol + '//' + window.location.hostname
+  origin += window.location.port if window.location.port
+workdir = origin
+unless window.location.pathname is '/'
+  workdir += window.location.pathname.split('/').slice(1, -1).join('/')
+
+config =
+  baseUrl: workdir
+  paths: {}
 
 
-class Loader
+loader =
 
-  constructor: () ->
-    @loading = {}
+  loading: {}
 
-  loadFile: (url, callback) ->
+  loadFile: (moduleId, url, callback) ->
     head = document.getElementsByTagName('head')[0]
 
     ele = document.createElement 'script'
     ele.type = 'text/javascript'
     ele.async = true
     ele.src = url
+    ele.setAttribute 'data-module', moduleId
 
     doCallback = ->
       callback()
@@ -51,7 +61,7 @@ class Loader
       if module
         @loadModuleDependencies id, stack
       else
-        @loadFile require.toUrl(id), =>
+        @loadFile id, require.toUrl(id), =>
           if modules[id]
             @loadModuleDependencies id, stack
           else
@@ -88,6 +98,11 @@ class Loader
 class Module
 
   constructor: (id, dependencies, factory) ->
+
+    if typeof id isnt 'string'
+      factory = dependencies
+      dependencies = id
+      id = @resolveAnonymousId()
 
     if Object::toString.call(dependencies) isnt '[object Array]'
       factory = dependencies
@@ -132,9 +147,20 @@ class Module
     @exports = null
 
   resolveAnonymousId: ->
+    ele = @getCurrentScript()
+    if ele
+      return ele.getAttribute 'data-module'
+    #url = url.slice config.baseUrl.length + 1
+    #url = url.replace rJS, ''
+
+  getCurrentScript: ->
     if document.currentScript
-      url = document.currentScript.src
+      return document.currentScript
     else
+      eles = document.getElementsByTagName('head')[0].getElementsByTagName('script')
+      if 'readyState' in eles[0]
+        for ele in eles
+          return ele.src if ele.readyState is 'interactive'
       try
         throw new Error
       catch e
@@ -147,15 +173,17 @@ class Module
       firefox31
       @http://xliuming.com/error-stack-test.js:2:5
       ie11
-      Error at Global code (http://fed.d.xiaonei.com/javascripts/error-stack-test.js:2:5)
+      Error at Global code (http://xliuming.com/error-stack-test.js:2:5)
       ie7
       ie6
       undefined
       ###
-      stack = stack.split(/[@ ]/g).pop()
-      if stack.charAt(0) is '('
-        stack = stack.slice(1,-1)
-      stack = stack.replace(/(:\d+)?:\d+$/i, "")
+      if stack
+        url = stack.match(rStackUrl)[1]#.replace(/\?.+$/, '')
+        for ele in eles
+          return ele if ele.src is url
+
+    return null
 
   getPreloadDependencies: ->
     deps = []
@@ -166,10 +194,10 @@ class Module
 
   resolveDependenceId: (id) ->
     parentId = @id
-    if dot = rRelativeId.exec id
+    if dots = rRelativeId.exec id
       parentId = parentId.split '/'
-      parentId = parentId.slice 0, -dot[0].length
-      id = parentId.join('/') + id.slice(dot[0].length)
+      parentId = parentId.slice 0, -dots[0].length
+      id = parentId.join('/') + id.slice(dots[0].length)
 
     return id if parentId.indexOf('__anonymous_') is 0
 
@@ -215,7 +243,7 @@ class Module
       else
         moduleExports.push localRequire(dep)
 
-    module.exports = (@factory.apply module.exports, moduleExports) || module.exports
+    module.exports = (@factory?.apply module.exports, moduleExports) || module.exports
 
 
 
@@ -242,14 +270,8 @@ class Module
     localRequire
 
 
-loader = new Loader
-
 define = (id, dependencies, factory) ->
-  if typeof id isnt 'string'
-    require id, dependencies
-  else
-    new Module(id, dependencies, factory)
-
+  new Module(id, dependencies, factory)
 
 define.amd = {}
 
@@ -293,13 +315,20 @@ require.config = (options) ->
   for own key, value of options
     switch key
       when 'baseUrl'
+        if dots = rRelativeId.exec value
+          if dots[0].length is 2 and workdir isnt origin
+            value = workdir.split('/').slice(0, -1).join('/') + value.slice(dots[0].length)
+          else
+            value = origin + value.slice(dots[0].length)
+        #else if value.indexOf('://') === -1
+        #  value = origin + value
         config.baseUrl = value
       when 'paths'
         config.paths = config.paths ? {}
         for own k, v of value
           config.paths[k] = v
       when 'map'
-        config.map = config.paths ? {}
+        config.map = config.map ? {}
         for own k, v of value
           config.map[k] = v
       when 'shim'
