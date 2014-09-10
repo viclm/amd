@@ -26,8 +26,8 @@ unless Array::indexOf
         fromIndex = 0
 
     for index in [fromIndex...length]
-      if @[index] is searchElement
-        return fromIndex
+      if this[index] is searchElement
+        return index
 
     return -1
 
