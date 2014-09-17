@@ -1,4 +1,4 @@
-define('b', ['a'], function (a) {
+define(['map/a'], function (a) {
     return {
         a: a
     } 

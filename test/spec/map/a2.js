@@ -1,6 +1,6 @@
-define('a2', function () {
+define(function () {
     return {
         name: 'a',
         version: 2.0
     };
-})
+});
