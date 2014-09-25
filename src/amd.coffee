@@ -4,7 +4,6 @@ rStackUrl = /([^@\s(]+)(?::\d+){1,2}\)?$/
 rJS = /\.js$/
 defaultDependencies = ['require', 'exports', 'module']
 mainModuleCount = 0
-modules = {}
 
 origin = window.location.origin
 unless origin
@@ -79,19 +78,19 @@ loader =
     else
       @loading[id] = [callback]
 
-      module = modules[id]
+      module = modules.get id
 
       if module
         @loadModuleDependencies id, stack
       else
         @loadFile id, require.toUrl(id), =>
-          if modules[id]
+          if modules.get id
             @loadModuleDependencies id, stack
           else
             throw "module #{id} doesn't exist. stack: #{stack}"
 
   loadModuleDependencies: (id, stack) ->
-    module = modules[id]
+    module = modules.get id
     if module.exports or module.dependenciesReady
       callbacks = @loading[id]
       @loading[id] = null
@@ -116,58 +115,35 @@ loader =
       next()
 
 
+modules =
+
+  cache: {},
+
+  get: (moduleId) ->
+    @cache[moduleId]
+
+  set: (moduleId, module) ->
+    @cache[moduleId] = module
+
+  remove: (moduleId) ->
+    delete @cache[moduleId]
+
 
 
 class Module
 
-  constructor: (id, dependencies, factory) ->
+  constructor: (@id, @dependencies, @factory) ->
 
-    if typeof id isnt 'string'
-      factory = dependencies
-      dependencies = id
-      id = @resolveAnonymousId()
+    if typeof @id isnt 'string'
+      @factory = @dependencies
+      @dependencies = @id
+      @id = @resolveAnonymousId()
 
-    if Object::toString.call(dependencies) isnt '[object Array]'
-      factory = dependencies
-      dependencies = defaultDependencies
+    if Object::toString.call(@dependencies) isnt '[object Array]'
+      @factory = @dependencies
+      @dependencies = defaultDependencies.slice(0, @factory?.length or 0)
 
-    if typeof factory is 'function'
-      if dependencies.indexOf('require') > -1
-        implicitDependencies = []
-        fnstr = factory.toString()
-        fnstr.replace rRequire, (s, p1, p2) ->
-          implicitDependencies.push p2
-        fnstr = null
-    else if Object::toString.call(factory) is '[object Object]'
-      exports = factory
-    else
-      throw 'factory is required.'
-
-    @id = id
-    @dependencies = dependencies
-    @factory = factory
-
-    if implicitDependencies
-      @implicitDependencies = implicitDependencies
-    else
-      @implicitDependencies = []
-
-    if exports
-      @exports = exports
-      @dependenciesReady = true
-      modules[id] =
-        uri: require.toUrl @id
-        dependencies: @dependencies
-        exports: @exports
-    else
-      modules[id] = @
-
-  destructor: ->
-    @id = null
-    @dependencies = null
-    @factory = null
-    @implicitDependencies = null
-    @exports = null
+    throw 'factory is required.' unless @factory
 
   resolveAnonymousId: ->
     ele = @getCurrentScript()
@@ -209,8 +185,14 @@ class Module
     return null
 
   getPreloadDependencies: ->
+    if @dependencies.indexOf('require') > -1
+      implicitDependencies = []
+      fnstr = @factory.toString()
+      fnstr.replace rRequire, (s, p1, p2) ->
+        implicitDependencies.push p2
+      fnstr = null
     deps = []
-    for dep in @dependencies.concat(@implicitDependencies)
+    for dep in @dependencies.concat(implicitDependencies or [])
       if defaultDependencies.indexOf(dep) is -1
         deps.push @resolveDependenceId dep
     deps
@@ -248,15 +230,11 @@ class Module
       id = m.value + id.slice(m.key.length)
 
   execute: () ->
-    module =
-      uri: require.toUrl @id
-      dependencies: @dependencies
-      exports: {}
-    modules[@id] = module
+    module = @export()
     localRequire = @createRequire()
     moduleExports = []
 
-    for dep in @dependencies#.slice(0, @factory.length)
+    for dep in @dependencies
       if dep is 'require'
         moduleExports.push localRequire
       else if dep is 'exports'
@@ -266,9 +244,19 @@ class Module
       else
         moduleExports.push localRequire(dep)
 
-    module.exports = (@factory?.apply module.exports, moduleExports) || module.exports
+    if Object::toString.call(@factory) is '[object Object]'
+      module.exports = @factory
+    else if @factory.apply
+      module.exports = @factory.apply(module.exports, moduleExports) || module.exports
 
+    module
 
+  export: () ->
+    {
+      uri: require.toUrl @id if @dependencies.indexOf('module') > -1
+      dependencies: @dependencies if @dependencies.indexOf('module') > -1
+      exports: {}
+    }
 
   createRequire: () ->
     parent = @
@@ -294,14 +282,15 @@ class Module
 
 
 define = (id, dependencies, factory) ->
-  new Module(id, dependencies, factory)
+  module = new Module(id, dependencies, factory)
+  modules.set module.id, module
 
 define.amd = {}
 
 require = (id, callback) ->
   if typeof id is 'string'
-    if modules[id]
-      modules[id].exports || modules[id].execute()
+    if module = modules.get(id)
+      module.exports or modules.set(id, module.execute()).exports
     else
       throw "module #{id} is not found."
   else
@@ -309,8 +298,8 @@ require = (id, callback) ->
     anonymousId = '__anonymous_' + mainModuleCount + '__'
     define anonymousId, id, callback
     loader.loadModule anonymousId, [], ->
-      modules[anonymousId].execute()
-      delete modules[anonymousId]
+      modules.get(anonymousId).execute()
+      modules.remove anonymousId
 
 require.toUrl = (id) ->
   paths = []
